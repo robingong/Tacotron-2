@@ -68,7 +68,7 @@ class TacotronDecoderCellState(
 
 class TacotronDecoderCell(RNNCell):
 	"""Tactron 2 Decoder Cell
-	Decodes encoder output and previous mel frames into next r frames
+	Decodes encoder output and previous frames into next r frames
 
 	Decoder Step i:
 		1) Prenet to compress last output information
@@ -92,7 +92,7 @@ class TacotronDecoderCell(RNNCell):
 		    attention_mechanism: A _BaseAttentionMechanism instance, usefull to
 			    learn encoder-decoder alignments
 		    rnn_cell: Instance of RNNCell, main body of the decoder
-		    frame_projection: tensorflow fully connected layer with r * num_mels output units
+		    frame_projection: tensorflow fully connected layer with r * depth output units
 		    stop_projection: tensorflow fully connected layer, expected to project to a scalar
 			    and through a sigmoid activation
 			mask_finished: Boolean, Whether to mask decoder frames after the <stop_token>

@@ -4,10 +4,10 @@ from tensorflow.contrib.seq2seq import Helper
 
 
 class TacoTestHelper(Helper):
-	def __init__(self, batch_size, hparams):
+	def __init__(self, batch_size, target_depth, hparams):
 		with tf.name_scope('TacoTestHelper'):
 			self._batch_size = batch_size
-			self._output_dim = hparams.num_mels
+			self._output_dim = target_depth
 			self._reduction_factor = hparams.outputs_per_step
 			self.stop_at_any = hparams.stop_at_any
 
@@ -60,11 +60,11 @@ class TacoTestHelper(Helper):
 
 
 class TacoTrainingHelper(Helper):
-	def __init__(self, batch_size, targets, stop_targets, hparams, gta, evaluating, global_step):
+	def __init__(self, batch_size, targets, target_depth, stop_targets, hparams, gta, evaluating, global_step):
 		# inputs is [N, T_in], targets is [N, T_out, D]
 		with tf.name_scope('TacoTrainingHelper'):
 			self._batch_size = batch_size
-			self._output_dim = hparams.num_mels
+			self._output_dim = target_depth
 			self._reduction_factor = hparams.outputs_per_step
 			self._ratio = tf.convert_to_tensor(hparams.tacotron_teacher_forcing_ratio)
 			self.gta = gta

@@ -13,49 +13,21 @@ hparams = tf.contrib.training.HParams(
 	###########################################################################################################################################
 
 	#Audio
-	num_mels = 160, #Number of mel-spectrogram channels and local conditioning dimensionality
-	num_freq = 2049, # (= n_fft / 2 + 1) only used when adding linear spectrograms post processing network
-	rescale = True, #Whether to rescale audio prior to preprocessing
-	rescaling_max = 0.999, #Rescaling value
-	trim_silence = True, #Whether to clip silence in Audio (at beginning and end of audio only, not the middle)
-	clip_mels_length = True, #For cases of OOM (Not really recommended, working on a workaround)
-	max_mel_frames = 900,  #Only relevant when clip_mels_length = True
-
-	# Use LWS (https://github.com/Jonathan-LeRoux/lws) for STFT and phase reconstruction
-	# It's preferred to set True to use with https://github.com/r9y9/wavenet_vocoder
-	# Does not work if n_ffit is not multiple of hop_size!!
-	use_lws=False,
-	silence_threshold=2, #silence threshold used for sound trimming for wavenet preprocessing
-
-	#Mel spectrogram
-	n_fft = 4096, #Extra window size is filled with 0 paddings to match this parameter
-	hop_size = 600, #For 22050Hz, 275 ~= 12.5 ms
-	win_size = 2400, #For 22050Hz, 1100 ~= 50 ms (If None, win_size = n_fft)
+	fft_size = 2048,
+	num_lf0 = 1,
+	num_mgc = 60,
+	num_bap = 5,
 	sample_rate = 48000, #22050 Hz (corresponding to ljspeech dataset)
-	frame_shift_ms = None,
-	preemphasis = 0.97, # preemphasis coefficient
+	mcep_alpha=0.77, #0.58(16k) 0.65(22050) 0.76(44100)
+	rescale_max = 0.999, #Rescaling value
+	trim_silence = True, #Whether to clip silence in Audio (at beginning and end of audio only, not the middle)
+	max_frame_num = 5000,  #Only relevant when clip_mels_length = True
 
 	#M-AILABS (and other datasets) trim params
 	trim_fft_size = 512,
 	trim_hop_size = 128,
 	trim_top_db = 60,
 
-	#Mel and Linear spectrograms normalization/scaling and clipping
-	signal_normalization = True,
-	allow_clipping_in_normalization = False, #Only relevant if mel_normalization = True
-	symmetric_mels = True, #Whether to scale the data to be symmetric around 0
-	max_abs_value = 4., #max absolute value of data. If symmetric, data will be [-max, max] else [0, max]
-	normalize_for_wavenet = True, #whether to rescale to [0, 1] for wavenet.
-
-	#Limits
-	min_level_db = -120,
-	ref_level_db = 20,
-	fmin = 125, #Set this to 75 if your speaker is male! if female, 125 should help taking off noise. (To test depending on dataset)
-	fmax = 7600,
-
-	#Griffin Lim
-	power = 1.2,
-	griffin_lim_iters = 60,
 	###########################################################################################################################################
 
 	#Tacotron
@@ -88,7 +60,7 @@ hparams = tf.contrib.training.HParams(
 	mask_decoder = False, #Whether to use loss mask for padded sequences (if False, <stop_token> loss function will not be weighted, else recommended pos_weight = 20)
 
 	cross_entropy_pos_weight = 1, #Use class weights to reduce the stop token classes imbalance (by adding more penalty on False Negatives (FN)) (1 = disabled)
-	predict_linear = True, #Whether to add a post-processing network to the Tacotron to predict linear spectrograms (True mode Not tested!!)
+
 	###########################################################################################################################################
 
 	#Tacotron Training
@@ -133,7 +105,7 @@ hparams = tf.contrib.training.HParams(
 	tacotron_teacher_forcing_ratio = 1., #Value from [0., 1.], 0.=0%, 1.=100%, determines the % of times we force next decoder inputs, Only relevant if mode='constant'
 	tacotron_teacher_forcing_init_ratio = 1., #initial teacher forcing ratio. Relevant if mode='scheduled'
 	tacotron_teacher_forcing_final_ratio = 0., #final teacher forcing ratio. Relevant if mode='scheduled'
-	tacotron_teacher_forcing_start_decay = 40000, #starting point of teacher forcing ratio decay. Relevant if mode='scheduled'
+	tacotron_teacher_forcing_start_decay = 20000, #starting point of teacher forcing ratio decay. Relevant if mode='scheduled'
 	tacotron_teacher_forcing_decay_steps = 280000, #Determines the teacher forcing ratio decay slope. Relevant if mode='scheduled'
 	tacotron_teacher_forcing_decay_alpha = 0., #teacher forcing ratio decay rate. Relevant if mode='scheduled'
 	###########################################################################################################################################

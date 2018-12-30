@@ -287,12 +287,12 @@ class DecoderRNN:
 
 
 class FrameProjection:
-	"""Projection layer to r * num_mels dimensions or num_mels dimensions
+	"""Projection layer to r * target dimensions or target dimensions
 	"""
 	def __init__(self, shape=80, activation=None, scope=None):
 		"""
 		Args:
-			shape: integer, dimensionality of output space (r*n_mels for decoder or n_mels for postnet)
+			shape: integer, dimensionality of output space (r* target depth for decoder or target detpth for postnet)
 			activation: callable, activation function
 			scope: FrameProjection scope.
 		"""

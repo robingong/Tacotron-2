@@ -5,7 +5,7 @@ import numpy as np
 from datasets import audio
 
 
-def build_from_path(hparams, input_dirs, mel_dir, linear_dir, wav_dir, n_jobs=12, tqdm=lambda x: x):
+def build_from_path(hparams, input_dirs, lf0_dir, mgc_dir, bap_dir, n_jobs=12, tqdm=lambda x: x):
 	"""
 	Preprocesses the speech dataset from a gven input path to given output directories
 
@@ -32,29 +32,17 @@ def build_from_path(hparams, input_dirs, mel_dir, linear_dir, wav_dir, n_jobs=12
 		for trn in trn_files:
 			with open(trn) as f:
 				basename = trn[:-4]
-				if basename.endswith('.wav'):
-					# THCHS30
-					f.readline()
-					wav_file = basename
-				else:
-					wav_file = basename + '.wav'
+				wav_file = basename + '.wav'
 				wav_path = wav_file
 				basename = basename.split('/')[-1]
 				text = f.readline().strip()
-		# with open(os.path.join(input_dir, 'metadata.csv'), encoding='utf-8') as f:
-
-		# 	for line in f:
-		# 		parts = line.strip().split('|')
-		# 		basename = parts[0]
-		# 		wav_path = os.path.join(input_dir, 'wavs', '{}.wav'.format(basename))
-		# 		text = parts[2]
-				futures.append(executor.submit(partial(_process_utterance, mel_dir, linear_dir, wav_dir, basename, wav_path, text, hparams)))
+				futures.append(executor.submit(partial(_process_utterance, lf0_dir, mgc_dir, bap_dir, basename, wav_path, text, hparams)))
 				index += 1
 
 	return [future.result() for future in tqdm(futures) if future.result() is not None]
 
 
-def _process_utterance(mel_dir, linear_dir, wav_dir, index, wav_path, text, hparams):
+def _process_utterance(lf0_dir, mgc_dir, bap_dir, index, wav_path, text, hparams):
 	"""
 	Preprocesses a single utterance wav/text pair
 
@@ -75,61 +63,33 @@ def _process_utterance(mel_dir, linear_dir, wav_dir, index, wav_path, text, hpar
 	"""
 	try:
 		# Load the audio as numpy array
-		wav = audio.load_wav(wav_path, sr=hparams.sample_rate)
+		wav = audio.load_wav(wav_path, hparams)
 	except FileNotFoundError: #catch missing wav exception
 		print('file {} present in csv metadata is not present in wav folder. skipping!'.format(
 			wav_path))
 		return None
 
-	#rescale wav
-	if hparams.rescale:
-		wav = wav / np.abs(wav).max() * hparams.rescaling_max
-
 	#M-AILABS extra silence specific
 	if hparams.trim_silence:
 		wav = audio.trim_silence(wav, hparams)
 
-	#[-1, 1]
-	out = wav
-	constant_values = 0.
-	out_dtype = np.float32
-
-	# Compute the mel scale spectrogram from the wav
-	mel_spectrogram = audio.melspectrogram(wav, hparams).astype(np.float32)
-	mel_frames = mel_spectrogram.shape[1]
-
-	if mel_frames > hparams.max_mel_frames and hparams.clip_mels_length:
+	# feature extraction
+	f0, sp, ap = audio.feature_extract(wav, hparams)
+	n_frames = len(f0)
+	if n_frames > hparams.max_frame_num:
 		return None
-
-	#Compute the linear scale spectrogram from the wav
-	linear_spectrogram = audio.linearspectrogram(wav, hparams).astype(np.float32)
-	linear_frames = linear_spectrogram.shape[1]
-
-	#sanity check
-	assert linear_frames == mel_frames
-
-	#Ensure time resolution adjustement between audio and mel-spectrogram
-	fft_size = hparams.n_fft if hparams.win_size is None else hparams.win_size
-	l, r = audio.pad_lr(wav, fft_size, audio.get_hop_size(hparams))
-
-	#Zero pad for quantized signal
-	out = np.pad(out, (l, r), mode='constant', constant_values=constant_values)
-	assert len(out) >= mel_frames * audio.get_hop_size(hparams)
-
-	#time resolution adjustement
-	#ensure length of raw audio is multiple of hop size so that we can use
-	#transposed convolution to upsample
-	out = out[:mel_frames * audio.get_hop_size(hparams)]
-	assert len(out) % audio.get_hop_size(hparams) == 0
-	time_steps = len(out)
-
-	# Write the spectrogram and audio to disk
-	audio_filename = 'audio-{}.npy'.format(index)
-	mel_filename = 'mel-{}.npy'.format(index)
-	linear_filename = 'linear-{}.npy'.format(index)
-	np.save(os.path.join(wav_dir, audio_filename), out.astype(out_dtype), allow_pickle=False)
-	np.save(os.path.join(mel_dir, mel_filename), mel_spectrogram.T, allow_pickle=False)
-	np.save(os.path.join(linear_dir, linear_filename), linear_spectrogram.T, allow_pickle=False)
+	
+	# feature normalization
+	lf0 = audio.f0_normalize(f0, hparams)
+	mgc = audio.sp_normalize(sp, hparams)
+	bap = audio.ap_normalize(ap, hparams)
+	
+	lf0_file = 'lf0-{}.npy'.format(index)
+	mgc_file = 'mgc-{}.npy'.format(index)
+	bap_file = 'bap-{}.npy'.format(index)
+	np.save(os.path.join(lf0_dir, lf0_file), lf0, allow_pickle=False)
+	np.save(os.path.join(mgc_dir, mgc_file), mgc, allow_pickle=False)
+	np.save(os.path.join(bap_dir, bap_file), bap, allow_pickle=False)
 
 	# Return a tuple describing this training example
-	return (audio_filename, mel_filename, linear_filename, time_steps, mel_frames, text)
+	return (lf0_file, mgc_file, bap_file, n_frames, n_frames, text)
