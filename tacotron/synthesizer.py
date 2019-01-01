@@ -69,7 +69,7 @@ class Synthesizer:
 					info='{}'.format(texts[i]), split_title=True)
 
 				#save wav
-				wav = audio.synthesize(lf0[i], mgcs[i], baps[i], hparams)
+				wav = audio.synthesize(lf0s[i], mgcs[i], baps[i], hparams)
 				audio.save_wav(wav, os.path.join(log_dir, 'wavs/wav-{:03d}.wav'.format(basenames[i])), hparams)
 
 
