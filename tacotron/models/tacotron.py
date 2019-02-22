@@ -301,9 +301,9 @@ class Tacotron():
 							linear_loss=0.
 					else:
 						# Compute loss of predictions before postnet
-						before = tf.losses.mean_squared_error(self.tower_mel_targets[i], self.tower_decoder_output[i])
+						before = tf.reduce_mean(tf.abs(self.tower_mel_targets[i] - self.tower_decoder_output[i]))
 						# Compute loss after postnet
-						after = tf.losses.mean_squared_error(self.tower_mel_targets[i], self.tower_mel_outputs[i])
+						after = tf.reduce_mean(tf.abs(self.tower_mel_targets[i] - self.tower_mel_outputs[i]))
 						#Compute <stop_token> loss (for learning dynamic generation stop)
 						stop_token_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
 							labels=self.tower_stop_token_targets[i],
@@ -311,7 +311,7 @@ class Tacotron():
 
 						if hp.predict_linear:
 							#Compute linear loss
-							linear_loss = tf.losses.mean_squared_error(self.tower_linear_targets[i], self.tower_linear_outputs[i])
+							linear_loss = tf.reduce_mean(tf.abs(self.tower_linear_targets[i] - self.tower_linear_outputs[i]))
 						else:
 							linear_loss = 0.
 
