@@ -48,7 +48,7 @@ class TacotronEncoderCell(RNNCell):
 class TacotronDecoderCellState(
 	collections.namedtuple("TacotronDecoderCellState",
 	 ("cell_state", "attention", "time", "alignments",
-	  "alignment_history"))):
+	  "alignment_history", "max_attentions"))):
 	"""`namedtuple` storing the state of a `TacotronDecoderCell`.
 	Contains:
 	  - `cell_state`: The state of the wrapped `RNNCell` at the previous time
@@ -68,7 +68,7 @@ class TacotronDecoderCellState(
 
 class TacotronDecoderCell(RNNCell):
 	"""Tactron 2 Decoder Cell
-	Decodes encoder output and previous frames into next r frames
+	Decodes encoder output and previous mel frames into next r frames
 
 	Decoder Step i:
 		1) Prenet to compress last output information
@@ -92,7 +92,7 @@ class TacotronDecoderCell(RNNCell):
 		    attention_mechanism: A _BaseAttentionMechanism instance, usefull to
 			    learn encoder-decoder alignments
 		    rnn_cell: Instance of RNNCell, main body of the decoder
-		    frame_projection: tensorflow fully connected layer with r * depth output units
+		    frame_projection: tensorflow fully connected layer with r * num_mels output units
 		    stop_projection: tensorflow fully connected layer, expected to project to a scalar
 			    and through a sigmoid activation
 			mask_finished: Boolean, Whether to mask decoder frames after the <stop_token>
@@ -128,7 +128,8 @@ class TacotronDecoderCell(RNNCell):
 			time=tensor_shape.TensorShape([]),
 			attention=self._attention_layer_size,
 			alignments=self._attention_mechanism.alignments_size,
-			alignment_history=())
+			alignment_history=(),
+			max_attentions=())
 
 	def zero_state(self, batch_size, dtype):
 		"""Return an initial (zero) state tuple for this `AttentionWrapper`.
@@ -162,7 +163,8 @@ class TacotronDecoderCell(RNNCell):
 				  dtype),
 				alignments=self._attention_mechanism.initial_alignments(batch_size, dtype),
 				alignment_history=tensor_array_ops.TensorArray(dtype=dtype, size=0,
-				dynamic_size=True))
+				dynamic_size=True),
+				max_attentions=tf.zeros((batch_size, ), dtype=tf.int32))
 
 	def __call__(self, inputs, state):
 		#Information bottleneck (essential for learning attention)
@@ -183,10 +185,11 @@ class TacotronDecoderCell(RNNCell):
 		#https://arxiv.org/pdf/1508.04025.pdf
 		previous_alignments = state.alignments
 		previous_alignment_history = state.alignment_history
-		context_vector, alignments, cumulated_alignments = _compute_attention(self._attention_mechanism,
+		context_vector, alignments, cumulated_alignments, max_attentions = _compute_attention(self._attention_mechanism,
 			LSTM_output,
 			previous_alignments,
-			attention_layer=None)
+			attention_layer=None,
+			prev_max_attentions=state.max_attentions)
 
 		#Concat LSTM outputs and context vector to form projections inputs
 		projections_input = tf.concat([LSTM_output, context_vector], axis=-1)
@@ -204,6 +207,7 @@ class TacotronDecoderCell(RNNCell):
 			cell_state=next_cell_state,
 			attention=context_vector,
 			alignments=cumulated_alignments,
-			alignment_history=alignment_history)
+			alignment_history=alignment_history,
+			max_attentions=max_attentions)
 
 		return (cell_outputs, stop_tokens), next_state

@@ -74,8 +74,8 @@ class Tacotron():
 			prenet = Prenet(is_training, layers_sizes=hp.prenet_layers, drop_rate=hp.tacotron_dropout_rate, scope='decoder_prenet')
 			#Attention Mechanism
 			attention_mechanism = LocationSensitiveAttention(hp.attention_dim, encoder_outputs, hparams=hp,
-				mask_encoder=hp.mask_encoder, memory_sequence_length=input_lengths, smoothing=hp.smoothing,
-				cumulate_weights=hp.cumulative_weights)
+				is_training=is_training, mask_encoder=hp.mask_encoder, memory_sequence_length=input_lengths,
+				smoothing=hp.smoothing, cumulate_weights=hp.cumulative_weights)
 			#Decoder LSTM Cells
 			decoder_lstm = DecoderRNN(is_training, layers=hp.decoder_layers,
 				size=hp.decoder_lstm_units, zoneout=hp.tacotron_zoneout_rate, scope='decoder_lstm')
@@ -92,7 +92,7 @@ class Tacotron():
 			#Define the helper for our decoder
 			if is_training or is_evaluating or gta:
 				decoder_targets = tf.concat([tf.expand_dims(lf0_targets, axis=-1), mgc_targets, bap_targets], axis=-1)
-				self.helper = TacoTrainingHelper(batch_size, decoder_targets, target_depth, stop_token_targets, hp, gta, is_evaluating, global_step)
+				self.helper = TacoTrainingHelper(batch_size, decoder_targets, target_depth, hp, gta, is_evaluating, global_step)
 			else:
 				self.helper = TacoTestHelper(batch_size, target_depth, hp)
 
