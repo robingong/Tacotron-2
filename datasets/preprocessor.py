@@ -76,7 +76,7 @@ def _process_utterance(lf0_dir, mgc_dir, bap_dir, index, wav_path, text, hparams
 	# feature extraction
 	f0, sp, ap = audio.feature_extract(wav, hparams)
 	n_frames = len(f0)
-	if n_frames > hparams.max_frame_num:
+	if n_frames > hparams.max_frame_num or len(text) > hparams.max_text_length:
 		return None
 	
 	# feature normalization

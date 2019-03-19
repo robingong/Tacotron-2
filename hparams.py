@@ -22,6 +22,7 @@ hparams = tf.contrib.training.HParams(
 	rescale_max = 0.999, #Rescaling value
 	trim_silence = True, #Whether to clip silence in Audio (at beginning and end of audio only, not the middle)
 	max_frame_num = 700,  #Only relevant when clip_mels_length = True
+	max_text_length = 300,  #Only relevant when clip_mels_length = True
 
 	#M-AILABS (and other datasets) trim params
 	trim_fft_size = 512,

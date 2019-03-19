@@ -9,11 +9,9 @@ int16_max = 32768.0
 
 def load_wav(path, hparams):
 	wav, _ = sf.read(path)
-	# rescale wav for unified measure for all clips
-	return wav# / np.abs(wav).max() * hparams.rescale_max
+	return wav
 
 def save_wav(wav, path, hparams):
-	# wav = wav / np.abs(wav).max() * hparams.rescale_max
 	sf.write(path, wav, hparams.sample_rate)
 
 def trim_silence(wav, hparams):
@@ -21,7 +19,7 @@ def trim_silence(wav, hparams):
 		frame_length=hparams.trim_fft_size, hop_length=hparams.trim_hop_size)[0]
 
 def feature_extract(wav, hparams):
-	return vocoder.wav2world(wav, hparams.sample_rate, hparams.fft_size, ap_depth=hparams.num_bap)
+	return vocoder.wav2world(wav, hparams.sample_rate, hparams.fft_size)
 
 def synthesize(lf0, mgc, bap, hparams):
 	lf0 = np.where(lf0 < 1, 0.0, lf0)
@@ -48,9 +46,14 @@ def sp_denormalize(x, hparams):
 	return np.square(sp / int16_max)
 
 def ap_normalize(x, hparams):
-	return x.astype(np.float32)
+	ap = int16_max * np.sqrt(x)
+	return pysptk.sptk.mcep(ap.astype(np.float32), order=hparams.num_bap - 1, alpha=hparams.mcep_alpha,
+				maxiter=0, threshold=0.001, etype=1, eps=1.0E-8, min_det=0.0, itype=3)
 
 def ap_denormalize(x, lf0, hparams):
+	ap = pysptk.sptk.mgc2sp(x.astype(np.float64), order=hparams.num_bap - 1,
+				alpha=hparams.mcep_alpha, gamma=0.0, fftlen=hparams.fft_size)
+	ap = np.square(ap / int16_max)
 	for i in range(len(lf0)):
-		x[i] = np.where(lf0[i] == 0, np.zeros(x.shape[1]), x[i])
-	return x.astype(np.float64)
+		ap[i] = np.where(lf0[i] == 0, np.zeros(ap.shape[1]), ap[i])
+	return ap
