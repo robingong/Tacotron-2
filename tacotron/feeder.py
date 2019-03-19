@@ -30,7 +30,7 @@ class Feeder:
 		self._bap_dir = os.path.join(os.path.dirname(metadata_filename), 'bap')
 		with open(metadata_filename, encoding='utf-8') as f:
 			self._metadata = [line.strip().split('|') for line in f]
-			hours = sum([int(x[4]) for x in self._metadata]) * 5 / (3600)
+			hours = sum([int(x[4]) for x in self._metadata]) * hparams.frame_period / (3600 * 1000)
 			log('Loaded metadata for {} examples ({:.2f} hours)'.format(len(self._metadata), hours))
 
 		#Train test split

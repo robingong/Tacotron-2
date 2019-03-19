@@ -23,7 +23,7 @@ def write_metadata(metadata, out_dir):
 			f.write('|'.join([str(x) for x in m]) + '\n')
 	num_frames = sum([int(m[4]) for m in metadata])
 	sr = hparams.sample_rate
-	hours = 5 * num_frames / sr / 3600
+	hours = hparams.frame_period * num_frames / (3600 * 1000)
 	print('Write {} utterances, {} frames, ({:.2f} hours)'.format(len(metadata), num_frames, hours))
 	print('Max input length (text chars): {}'.format(max(len(m[5]) for m in metadata)))
 	print('Max number frames length: {}'.format(max(int(m[4]) for m in metadata)))

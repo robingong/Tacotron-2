@@ -13,15 +13,16 @@ hparams = tf.contrib.training.HParams(
 	###########################################################################################################################################
 
 	#Audio
-	fft_size = 2048,
+	fft_size = 2048, #1024(16KHz) 1024(22050Hz) 2048(44.1KHz) 2048(48KHz)
 	num_lf0 = 1,
 	num_mgc = 60,
-	num_bap = 5,
+	num_bap = 5, # 1(16KHz, 22050Hz), 5(44.1KHz, 48KHz)
+	frame_period = 15, #15ms
 	sample_rate = 48000, #22050 Hz (corresponding to ljspeech dataset)
 	mcep_alpha=0.77, #0.58(16k) 0.65(22050) 0.76(44100) 0.77(48000)
 	rescale_max = 0.999, #Rescaling value
 	trim_silence = True, #Whether to clip silence in Audio (at beginning and end of audio only, not the middle)
-	max_frame_num = 700,  #Only relevant when clip_mels_length = True
+	max_frame_num = 750,  #Only relevant when clip_mels_length = True
 	max_text_length = 300,  #Only relevant when clip_mels_length = True
 
 	#M-AILABS (and other datasets) trim params
@@ -130,7 +131,7 @@ hparams = tf.contrib.training.HParams(
 	tacotron_teacher_forcing_ratio = 1., #Value from [0., 1.], 0.=0%, 1.=100%, determines the % of times we force next decoder inputs, Only relevant if mode='constant'
 	tacotron_teacher_forcing_init_ratio = 1., #initial teacher forcing ratio. Relevant if mode='scheduled'
 	tacotron_teacher_forcing_final_ratio = 0., #final teacher forcing ratio. (Set None to use alpha instead) Relevant if mode='scheduled'
-	tacotron_teacher_forcing_start_decay = 10000, #starting point of teacher forcing ratio decay. Relevant if mode='scheduled'
+	tacotron_teacher_forcing_start_decay = 40000, #starting point of teacher forcing ratio decay. Relevant if mode='scheduled'
 	tacotron_teacher_forcing_decay_steps = 40000, #Determines the teacher forcing ratio decay slope. Relevant if mode='scheduled'
 	tacotron_teacher_forcing_decay_alpha = None, #teacher forcing ratio decay rate. Defines the final tfr as a ratio of initial tfr. Relevant if mode='scheduled'
 	###########################################################################################################################################
