@@ -18,7 +18,7 @@ hparams = tf.contrib.training.HParams(
 	num_mgc = 60,
 	num_bap = 5,
 	sample_rate = 48000, #22050 Hz (corresponding to ljspeech dataset)
-	mcep_alpha=0.65, #0.58(16k) 0.65(22050) 0.76(44100) 0.77(48000)
+	mcep_alpha=0.77, #0.58(16k) 0.65(22050) 0.76(44100) 0.77(48000)
 	rescale_max = 0.999, #Rescaling value
 	trim_silence = True, #Whether to clip silence in Audio (at beginning and end of audio only, not the middle)
 	max_frame_num = 700,  #Only relevant when clip_mels_length = True
@@ -98,11 +98,11 @@ hparams = tf.contrib.training.HParams(
 
 	#Learning rate schedule
 	tacotron_decay_learning_rate = True, #boolean, determines if the learning rate will follow an exponential decay
-	tacotron_start_decay = 40000, #Step at which learning decay starts
-	tacotron_decay_steps = 18000, #Determines the learning rate decay slope (UNDER TEST)
+	tacotron_start_decay = 50000, #Step at which learning decay starts
+	tacotron_decay_steps = 50000, #Determines the learning rate decay slope (UNDER TEST)
 	tacotron_decay_rate = 0.5, #learning rate decay rate (UNDER TEST)
 	tacotron_initial_learning_rate = 1e-3, #starting learning rate
-	tacotron_final_learning_rate = 1e-4, #minimal learning rate
+	tacotron_final_learning_rate = 1e-5, #minimal learning rate
 
 	#Optimization parameters
 	tacotron_adam_beta1 = 0.9, #AdamOptimizer beta1 parameter
