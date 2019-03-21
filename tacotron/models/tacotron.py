@@ -133,13 +133,13 @@ class Tacotron():
 			final_outputs = decoder_outputs + projected_residual
 
 			#Compute each feature outputs
-			lf0_outputs = final_outputs[:, :, 0]
-			mgc_outputs = final_outputs[:, :, hp.num_lf0 : hp.num_mgc + 1]
-			bap_outputs = final_outputs[:, :, hp.num_mgc + 1:]
+			lf0_outputs = tf.slice(final_outputs, [0, 0, 0], [-1, -1, hp.num_lf0], name='lf0_outputs')
+			mgc_outputs = tf.slice(final_outputs, [0, 0, hp.num_lf0], [-1, -1, hp.num_mgc], name='mgc_outputs')
+			bap_outputs = tf.slice(final_outputs, [0, 0, hp.num_lf0 + hp.num_mgc], [-1, -1, hp.num_bap], name='bap_outputs')
 
 
 			#Grab alignments from the final decoder state
-			alignments = tf.transpose(final_decoder_state.alignment_history.stack(), [1, 2, 0])
+			alignments = tf.transpose(final_decoder_state.alignment_history.stack(), [1, 2, 0], name='alignments')
 
 			if is_training:
 				self.ratio = self.helper._ratio
