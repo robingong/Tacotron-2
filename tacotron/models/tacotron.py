@@ -133,13 +133,14 @@ class Tacotron():
 			final_outputs = decoder_outputs + projected_residual
 
 			#Compute each feature outputs
-			lf0_outputs = final_outputs[:, :, 0]
-			mgc_outputs = final_outputs[:, :, hp.num_lf0 : hp.num_mgc + 1]
-			bap_outputs = final_outputs[:, :, hp.num_mgc + 1:]
+			lf0_outputs = tf.slice(final_outputs, [0, 0, 0], [-1, -1, hp.num_lf0])
+			lf0_outputs = tf.squeeze(lf0_outputs, axis=-1, name='lf0_outputs')
+			mgc_outputs = tf.slice(final_outputs, [0, 0, hp.num_lf0], [-1, -1, hp.num_mgc], name='mgc_outputs')
+			bap_outputs = tf.slice(final_outputs, [0, 0, hp.num_lf0 + hp.num_mgc], [-1, -1, hp.num_bap], name='bap_outputs')
 
 
 			#Grab alignments from the final decoder state
-			alignments = tf.transpose(final_decoder_state.alignment_history.stack(), [1, 2, 0])
+			alignments = tf.transpose(final_decoder_state.alignment_history.stack(), [1, 2, 0], name='alignments')
 
 			if is_training:
 				self.ratio = self.helper._ratio
@@ -191,6 +192,14 @@ class Tacotron():
 					self.stop_token_outputs, self.targets_lengths, hparams=self._hparams)
 
 			else:
+				# guided_attention loss
+				N = self._hparams.max_text_length
+				T = self._hparams.max_frame_num
+				A = tf.pad(self.alignments, [(0, 0), (0, N), (0, T)], mode="CONSTANT", constant_values=-1.)[:, :N, :T]
+				gts = tf.convert_to_tensor(GuidedAttention(N, T))
+				attention_masks = tf.to_float(tf.not_equal(A, -1))
+				attention_loss = tf.reduce_sum(tf.abs(A * gts) * attention_masks)
+				attention_loss /= tf.reduce_sum(attention_masks)
 				# Compute loss of predictions before postnet
 				before_loss = tf.reduce_mean(tf.abs(self.world_targets - self.decoder_outputs))
 				# Compute loss after postnet
@@ -210,8 +219,9 @@ class Tacotron():
 			self.after_loss = after_loss
 			self.stop_token_loss = stop_token_loss
 			self.regularization_loss = regularization_loss
+			self.attention_loss = attention_loss
 
-			self.loss = self.before_loss + self.after_loss + self.stop_token_loss + self.regularization_loss
+			self.loss = self.before_loss + self.after_loss + self.stop_token_loss + self.regularization_loss + self.attention_loss
 
 	def add_optimizer(self, global_step):
 		'''Adds optimizer. Sets "gradients" and "optimize" fields. add_loss must have been called.

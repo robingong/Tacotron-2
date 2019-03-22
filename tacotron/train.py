@@ -4,7 +4,6 @@ import subprocess
 import time
 import traceback
 from datetime import datetime
-
 import infolog
 import numpy as np
 import tensorflow as tf
@@ -21,14 +20,11 @@ log = infolog.log
 
 def add_train_stats(model, hparams):
 	with tf.variable_scope('stats') as scope:
-		# tf.summary.histogram('final_outputs', model.decoder_outputs)
-		# tf.summary.histogram('final_targets', model.final_targets)
-		# tf.summary.histogram('final_outputs', model.final_outputs)
-		# tf.summary.histogram('final_targets', model.final_targets)
 		tf.summary.scalar('before_loss', model.before_loss)
 		tf.summary.scalar('after_loss', model.after_loss)
 		tf.summary.scalar('regularization_loss', model.regularization_loss)
 		tf.summary.scalar('stop_token_loss', model.stop_token_loss)
+		tf.summary.scalar('attention_loss', model.attention_loss)
 		tf.summary.scalar('loss', model.loss)
 		tf.summary.scalar('learning_rate', model.learning_rate) #Control learning rate decay speed
 		if hparams.tacotron_teacher_forcing_mode == 'scheduled':
@@ -38,11 +34,12 @@ def add_train_stats(model, hparams):
 		tf.summary.scalar('max_gradient_norm', tf.reduce_max(gradient_norms)) #visualize gradients (in case of explosion)
 		return tf.summary.merge_all()
 
-def add_eval_stats(summary_writer, step, before_loss, after_loss, stop_token_loss, loss):
+def add_eval_stats(summary_writer, step, before_loss, after_loss, stop_token_loss, attention_loss, loss):
 	values = [
 	tf.Summary.Value(tag='eval_model/eval_stats/eval_before_loss', simple_value=before_loss),
 	tf.Summary.Value(tag='eval_model/eval_stats/eval_after_loss', simple_value=after_loss),
 	tf.Summary.Value(tag='eval_model/eval_stats/stop_token_loss', simple_value=stop_token_loss),
+	tf.Summary.Value(tag='eval_model/eval_stats/attention_loss', simple_value=attention_loss),
 	tf.Summary.Value(tag='eval_model/eval_stats/eval_loss', simple_value=loss),
 	]
 	test_summary = tf.Summary(value=values)
@@ -123,7 +120,7 @@ def train(log_dir, args, hparams):
 	step = 0
 	time_window = ValueWindow(100)
 	loss_window = ValueWindow(100)
-	saver = tf.train.Saver(max_to_keep=5)
+	saver = tf.train.Saver(max_to_keep=1)
 
 	log('Tacotron training set to a maximum of {} steps'.format(args.tacotron_train_steps))
 
@@ -142,7 +139,6 @@ def train(log_dir, args, hparams):
 				# Restore saved model if the user requested it, default = True
 				try:
 					checkpoint_state = tf.train.get_checkpoint_state(save_dir)
-
 					if (checkpoint_state and checkpoint_state.model_checkpoint_path):
 						log('Loading checkpoint {}'.format(checkpoint_state.model_checkpoint_path), slack=True)
 						saver.restore(sess, checkpoint_state.model_checkpoint_path)
@@ -183,20 +179,24 @@ def train(log_dir, args, hparams):
 					before_losses = []
 					after_losses = []
 					stop_token_losses = []
+					attention_losses = []
 
 					for i in tqdm(range(feeder.test_steps)):
-						eloss, before_loss, after_loss, stop_token_loss, lf0_pred, mgc_pred, bap_pred, target_len, align = sess.run(
-							[eval_model.loss, eval_model.before_loss, eval_model.after_loss, eval_model.stop_token_loss, eval_model.lf0_outputs[0],
-							eval_model.mgc_outputs[0], eval_model.bap_outputs[0], eval_model.targets_lengths[0], eval_model.alignments[0]])
+						eloss, before_loss, after_loss, stop_token_loss, attention_loss, lf0_pred, mgc_pred, bap_pred, target_len, align = sess.run(
+							[eval_model.loss, eval_model.before_loss, eval_model.after_loss, eval_model.stop_token_loss,
+							eval_model.attention_loss, eval_model.lf0_outputs[0], eval_model.mgc_outputs[0],
+							eval_model.bap_outputs[0], eval_model.targets_lengths[0], eval_model.alignments[0]])
 						eval_losses.append(eloss)
 						before_losses.append(before_loss)
 						after_losses.append(after_loss)
 						stop_token_losses.append(stop_token_loss)
+						attention_losses.append(attention_loss)
 
 					eval_loss = sum(eval_losses) / len(eval_losses)
 					before_loss = sum(before_losses) / len(before_losses)
 					after_loss = sum(after_losses) / len(after_losses)
 					stop_token_loss = sum(stop_token_losses) / len(stop_token_losses)
+					attention_loss = sum(attention_losses) / len(attention_losses)
 
 					log('Saving eval log to {}..'.format(eval_dir))
 					#Save some log to monitor model improvement on same unseen sequence
@@ -209,12 +209,14 @@ def train(log_dir, args, hparams):
 
 					log('Eval loss for global step {}: {:.3f}'.format(step, eval_loss))
 					log('Writing eval summary!')
-					add_eval_stats(summary_writer, step, before_loss, after_loss, stop_token_loss, eval_loss)
+					add_eval_stats(summary_writer, step, before_loss, after_loss, stop_token_loss, attention_loss, eval_loss)
 
 
 				if step % args.checkpoint_interval == 0 or step == args.tacotron_train_steps:
 					#Save model and current global step
 					saver.save(sess, checkpoint_path, global_step=global_step)
+					graph_def = tf.graph_util.convert_variables_to_constants(sess, sess.graph_def, ['model/inference/add'])
+					tf.train.write_graph(sess.graph_def, save_dir, 'graph.pb', as_text=False)
 
 					log('\nSaving alignment and World vocoder synthesized waveform..')
 					input_seq, lf0_pred, mgc_pred, bap_pred, alignment, target_length = sess.run([

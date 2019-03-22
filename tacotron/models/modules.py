@@ -1,4 +1,13 @@
+import numpy as np
 import tensorflow as tf
+
+
+def GuidedAttention(N, T, g=0.2):
+	W = np.zeros((N, T), dtype=np.float32)
+	for n in range(N):
+		for t in range(T):
+			W[n, t] = 1 - np.exp(-(t / float(T) - n / float(N)) ** 2 / (2 * g * g))
+	return W
 
 
 class HighwayNet:
