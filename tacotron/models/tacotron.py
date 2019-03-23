@@ -194,7 +194,7 @@ class Tacotron():
 			else:
 				# guided_attention loss
 				N = self._hparams.max_text_length
-				T = self._hparams.max_frame_num
+				T = self._hparams.max_frame_num // self._hparams.outputs_per_step
 				A = tf.pad(self.alignments, [(0, 0), (0, N), (0, T)], mode="CONSTANT", constant_values=-1.)[:, :N, :T]
 				gts = tf.convert_to_tensor(GuidedAttention(N, T))
 				attention_masks = tf.to_float(tf.not_equal(A, -1))
