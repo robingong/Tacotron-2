@@ -23,7 +23,7 @@ class Feeder:
 		self._cleaner_names = [x.strip() for x in hparams.cleaners.split(',')]
 		self._train_offset = 0
 		self._test_offset = 0
-		self._target_dim = hparams.num_mgc + hparams.num_lf0 + hparams.num_vuv, hparams.num_bap
+		self._target_dim = hparams.num_mgc + hparams.num_lf0 + hparams.num_vuv + hparams.num_bap
 
 		# Load metadata
 		self._feat_dir = os.path.join(os.path.dirname(metadata_filename), 'features')
