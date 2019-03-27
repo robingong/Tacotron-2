@@ -22,9 +22,6 @@ class Synthesizer:
 			self.model = create_model(model_name, hparams)
 			self.model.initialize(inputs, input_lengths)
 			self.alignments = self.model.alignments
-			self.lf0_outputs = self.model.lf0_outputs
-			self.mgc_outputs = self.model.mgc_outputs
-			self.bap_outputs = self.model.bap_outputs
 
 		self.gta = gta
 		self._hparams = hparams
@@ -54,14 +51,12 @@ class Synthesizer:
 			self.model.input_lengths: np.asarray(input_lengths, dtype=np.int32),
 		}
 
-		lf0s, mgcs, baps, alignments = self.session.run([self.lf0_outputs, self.mgc_outputs, self.bap_outputs, self.alignments], feed_dict=feed_dict)
+		features, alignments = self.session.run([self.final_outputs, self.alignments], feed_dict=feed_dict)
 
-		for i, _ in enumerate(lf0s):
+		for i, feature in enumerate(features):
 			# Write the predicted features to disk
 			# Note: outputs files and target ones have same names, just different folders
-			np.save(os.path.join(out_dir, 'lf0-{:03d}.npy'.format(basenames[i])), lf0s[i], allow_pickle=False)
-			np.save(os.path.join(out_dir, 'mgc-{:03d}.npy'.format(basenames[i])), mgcs[i], allow_pickle=False)
-			np.save(os.path.join(out_dir, 'bap-{:03d}.npy'.format(basenames[i])), baps[i], allow_pickle=False)
+			np.save(os.path.join(out_dir, 'feature-{:03d}.npy'.format(basenames[i])), feature, allow_pickle=False)
 
 			if log_dir is not None:
 				#save alignments
@@ -69,7 +64,7 @@ class Synthesizer:
 					info='{}'.format(texts[i]), split_title=True)
 
 				#save wav
-				wav = audio.synthesize(lf0s[i], mgcs[i], baps[i], hparams)
+				wav = audio.synthesize(feature, hparams)
 				audio.save_wav(wav, os.path.join(log_dir, 'wavs/wav-{:03d}.wav'.format(basenames[i])), hparams)
 
 
@@ -82,11 +77,11 @@ class Synthesizer:
 			self.model.inputs: seqs,
 			self.model.input_lengths: np.asarray(input_lengths, dtype=np.int32),
 		}
-		lf0s, mgcs, baps = self.session.run([self.model.lf0_outputs, self.model.mgc_outputs, self.bap_outputs], feed_dict=feed_dict)
+		features = self.session.run([self.model.final_outputs], feed_dict=feed_dict)
 
 		wavs = []
-		for i, _ in enumerate(lf0s):
-			wavs.append(audio.synthesize(lf0s[i], mgcs[i], baps[i], hparams))
+		for i, feature in enumerate(features):
+			wavs.append(audio.synthesize(feature, hparams))
 		return np.concatenate(wavs)
 
 

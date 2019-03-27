@@ -43,18 +43,18 @@ def feature_extract(wav, hp):
 	features = np.hstack((mgc, lf0, vuv, bap))
 	return features.astype(np.float32)
 
-def synthesize(lf0, mgc, bap, hparams):
+def synthesize(feature, hparams):
 	mgc_idx = 0
-	lf0_idx = mgc_idx + hp.n_mgc
-	vuv_idx = lf0_idx + hp.n_lf0
-	bap_idx = vuv_idx + hp.n_vuv
+	lf0_idx = mgc_idx + hparams.num_mgc
+	vuv_idx = lf0_idx + hparams.num_lf0
+	bap_idx = vuv_idx + hparams.num_vuv
 
-	mgc = feature[:, mgc_idx : mgc_idx + hp.n_mgc]
-	lf0 = feature[:, lf0_idx : lf0_idx + hp.n_lf0]
-	vuv = feature[:, vuv_idx : vuv_idx + hp.n_vuv]
-	bap = feature[:, bap_idx : bap_idx + hp.n_bap]
+	mgc = feature[:, mgc_idx : mgc_idx + hparams.num_mgc]
+	lf0 = feature[:, lf0_idx : lf0_idx + hparams.num_lf0]
+	vuv = feature[:, vuv_idx : vuv_idx + hparams.num_vuv]
+	bap = feature[:, bap_idx : bap_idx + hparams.num_bap]
 
-	fs = hp.sample_rate
+	fs = hparams.sample_rate
 	alpha = pysptk.util.mcepalpha(fs)
 	fftlen = fftlen = pyworld.get_cheaptrick_fft_size(fs)
 
@@ -67,4 +67,4 @@ def synthesize(lf0, mgc, bap, hparams):
 	return pyworld.synthesize(f0.flatten().astype(np.float64),
 				spectrogram.astype(np.float64),
 				aperiodicity.astype(np.float64),
-				fs, hp.frame_period)
+				fs, hparams.frame_period)
