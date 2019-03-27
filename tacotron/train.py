@@ -54,8 +54,8 @@ def model_train_mode(args, feeder, hparams, global_step):
 		if args.model == 'Tacotron-2':
 			model_name = 'Tacotron'
 		model = create_model(model_name or args.model, hparams)
-		model.initialize(feeder.inputs, feeder.input_lengths, feeder.lf0_targets, feeder.mgc_targets, feeder.bap_targets,
-				feeder.token_targets, targets_lengths=feeder.targets_lengths, global_step=global_step, is_training=True)
+		model.initialize(feeder.inputs, feeder.input_lengths, feeder.feature_targets, feeder.token_targets,
+				targets_lengths=feeder.targets_lengths, global_step=global_step, is_training=True)
 		model.add_loss()
 		model.add_optimizer(global_step)
 		stats = add_train_stats(model, hparams)
@@ -67,8 +67,8 @@ def model_test_mode(args, feeder, hparams, global_step):
 		if args.model == 'Tacotron-2':
 			model_name = 'Tacotron'
 		model = create_model(model_name or args.model, hparams)
-		model.initialize(feeder.eval_inputs, feeder.eval_input_lengths, feeder.eval_lf0_targets, feeder.eval_mgc_targets,
-				feeder.eval_bap_targets, feeder.eval_token_targets, targets_lengths=feeder.eval_targets_lengths,
+		model.initialize(feeder.eval_inputs, feeder.eval_input_lengths, feeder.eval_feature_targets,
+				feeder.eval_token_targets, targets_lengths=feeder.eval_targets_lengths,
 				global_step=global_step, is_training=False, is_evaluating=True)
 		model.add_loss()
 		return model
@@ -77,9 +77,7 @@ def train(log_dir, args, hparams):
 	save_dir = os.path.join(log_dir, 'taco_pretrained')
 	plot_dir = os.path.join(log_dir, 'plots')
 	wav_dir = os.path.join(log_dir, 'wavs')
-	lf0_dir = os.path.join(log_dir, 'lf0')
-	mgc_dir = os.path.join(log_dir, 'mgc')
-	bap_dir = os.path.join(log_dir, 'bap')
+	feat_dir = os.path.join(log_dir, 'features')
 	eval_dir = os.path.join(log_dir, 'eval-dir')
 	eval_plot_dir = os.path.join(eval_dir, 'plots')
 	eval_wav_dir = os.path.join(eval_dir, 'wavs')
@@ -87,9 +85,7 @@ def train(log_dir, args, hparams):
 	os.makedirs(save_dir, exist_ok=True)
 	os.makedirs(plot_dir, exist_ok=True)
 	os.makedirs(wav_dir, exist_ok=True)
-	os.makedirs(lf0_dir, exist_ok=True)
-	os.makedirs(mgc_dir, exist_ok=True)
-	os.makedirs(bap_dir, exist_ok=True)
+	os.makedirs(feat_dir, exist_ok=True)
 	os.makedirs(eval_dir, exist_ok=True)
 	os.makedirs(eval_plot_dir, exist_ok=True)
 	os.makedirs(eval_wav_dir, exist_ok=True)
@@ -182,10 +178,9 @@ def train(log_dir, args, hparams):
 					attention_losses = []
 
 					for i in tqdm(range(feeder.test_steps)):
-						eloss, before_loss, after_loss, stop_token_loss, attention_loss, lf0_pred, mgc_pred, bap_pred, target_len, align = sess.run(
+						eloss, before_loss, after_loss, stop_token_loss, attention_loss, feature_prediction, target_len, align = sess.run(
 							[eval_model.loss, eval_model.before_loss, eval_model.after_loss, eval_model.stop_token_loss,
-							eval_model.attention_loss, eval_model.lf0_outputs[0], eval_model.mgc_outputs[0],
-							eval_model.bap_outputs[0], eval_model.targets_lengths[0], eval_model.alignments[0]])
+							eval_model.attention_loss, eval_model.final_outputs[0], eval_model.targets_lengths[0], eval_model.alignments[0]])
 						eval_losses.append(eloss)
 						before_losses.append(before_loss)
 						after_losses.append(after_loss)
@@ -200,7 +195,7 @@ def train(log_dir, args, hparams):
 
 					log('Saving eval log to {}..'.format(eval_dir))
 					#Save some log to monitor model improvement on same unseen sequence
-					wav = audio.synthesize(lf0_pred, mgc_pred, bap_pred, hparams)
+					wav = audio.synthesize(feature_prediction, hparams)
 					audio.save_wav(wav, os.path.join(eval_wav_dir, 'step-{}-eval-waveform.wav'.format(step)), hparams)
 
 					plot.plot_alignment(align, os.path.join(eval_plot_dir, 'step-{}-eval-align.png'.format(step)),
@@ -219,17 +214,10 @@ def train(log_dir, args, hparams):
 					tf.train.write_graph(sess.graph_def, save_dir, 'graph.pb', as_text=False)
 
 					log('\nSaving alignment and World vocoder synthesized waveform..')
-					input_seq, lf0_pred, mgc_pred, bap_pred, alignment, target_length = sess.run([
-							model.inputs[0],
-							model.lf0_outputs[0],
-							model.mgc_outputs[0],
-							model.bap_outputs[0],
-							model.alignments[0],
-							model.targets_lengths[0],
-							])
+					input_seq, feature_prediction, alignment, target_length = sess.run([model.inputs[0], model.final_outputs[0], model.alignments[0], model.targets_lengths[0]])
 
 					#save World vocoder waveform for debug
-					wav = audio.synthesize(lf0_pred, mgc_pred, bap_pred, hparams)
+					wav = audio.synthesize(feature_prediction, hparams)
 					audio.save_wav(wav, os.path.join(wav_dir, 'step-{}.wav'.format(step)), hparams)
 
 					#save alignment plot to disk (control purposes)

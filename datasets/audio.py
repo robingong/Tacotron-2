@@ -1,11 +1,10 @@
 import librosa
 import numpy as np
 import pysptk
-import pyworld as vocoder
+import pyworld
 import soundfile as sf
 import tensorflow as tf
 
-int16_max = 32768.0
 
 def load_wav(path, hparams):
 	wav, _ = sf.read(path)
@@ -18,42 +17,54 @@ def trim_silence(wav, hparams):
 	return librosa.effects.trim(wav, top_db= hparams.trim_top_db,
 		frame_length=hparams.trim_fft_size, hop_length=hparams.trim_hop_size)[0]
 
-def feature_extract(wav, hparams):
-	return vocoder.wav2world(wav, hparams.sample_rate, hparams.fft_size)
+def feature_extract(wav, hp):
+	fs = hp.sample_rate
+	if hp.use_harvest:
+		f0, timeaxis = pyworld.harvest(wav, fs, frame_period=hp.frame_period)
+	else:
+		f0, timeaxis = pyworld.dio(wav, fs, frame_period=hp.frame_period)
+		f0 = pyworld.stonemask(wav, f0, timeaxis, fs)
+
+	spectrogram = pyworld.cheaptrick(wav, f0, timeaxis, fs)
+	aperiodicity = pyworld.d4c(wav, f0, timeaxis, fs)
+	bap = pyworld.code_aperiodicity(aperiodicity, fs)
+	alpha = pysptk.util.mcepalpha(fs)
+	mgc = pysptk.sp2mc(spectrogram, order=hp.num_mgc - 1, alpha=alpha)
+	f0 = f0[:, None]
+	lf0 = f0.copy()
+	nonzero_indices = np.nonzero(f0)
+	lf0[nonzero_indices] = np.log(f0[nonzero_indices])
+	if hp.use_harvest:
+		# https://github.com/mmorise/World/issues/35#issuecomment-306521887
+		vuv = (aperiodicity[:, 0] < 0.5).astype(np.float32)[:, None]
+	else:
+		vuv = (lf0 != 0).astype(np.float32)
+
+	features = np.hstack((mgc, lf0, vuv, bap))
+	return features.astype(np.float32)
 
 def synthesize(lf0, mgc, bap, hparams):
-	lf0 = np.where(lf0 < 1, 0.0, lf0)
-	f0 = f0_denormalize(lf0, hparams)
-	sp = sp_denormalize(mgc, hparams)
-	ap = ap_denormalize(bap, lf0, hparams)
-	wav = vocoder.synthesize(f0, sp, ap, hparams.sample_rate)
-	return wav
+	mgc_idx = 0
+	lf0_idx = mgc_idx + hp.n_mgc
+	vuv_idx = lf0_idx + hp.n_lf0
+	bap_idx = vuv_idx + hp.n_vuv
 
-def f0_normalize(x, hparams):
-	return np.log(np.where(x == 0.0, 1.0, x)).astype(np.float32)
+	mgc = feature[:, mgc_idx : mgc_idx + hp.n_mgc]
+	lf0 = feature[:, lf0_idx : lf0_idx + hp.n_lf0]
+	vuv = feature[:, vuv_idx : vuv_idx + hp.n_vuv]
+	bap = feature[:, bap_idx : bap_idx + hp.n_bap]
 
-def f0_denormalize(x, hparams):
-	return np.where(x == 0.0, 0.0, np.exp(x.astype(np.float64)))
+	fs = hp.sample_rate
+	alpha = pysptk.util.mcepalpha(fs)
+	fftlen = fftlen = pyworld.get_cheaptrick_fft_size(fs)
 
-def sp_normalize(x, hparams):
-	sp = int16_max * np.sqrt(x)
-	return pysptk.sptk.mcep(sp.astype(np.float32), order=hparams.num_mgc - 1, alpha=hparams.mcep_alpha,
-				maxiter=0, threshold=0.001, etype=1, eps=1.0E-8, min_det=0.0, itype=3)
+	spectrogram = pysptk.mc2sp(mgc, fftlen=fftlen, alpha=alpha)
+	aperiodicity = pyworld.decode_aperiodicity(bap.astype(np.float64), fs, fftlen)
+	f0 = lf0.copy()
+	f0[vuv < 0.5] = 0
+	f0[np.nonzero(f0)] = np.exp(f0[np.nonzero(f0)])
 
-def sp_denormalize(x, hparams):
-	sp = pysptk.sptk.mgc2sp(x.astype(np.float64), order=hparams.num_mgc - 1,
-				alpha=hparams.mcep_alpha, gamma=0.0, fftlen=hparams.fft_size)
-	return np.square(sp / int16_max)
-
-def ap_normalize(x, hparams):
-	ap = int16_max * np.sqrt(x)
-	return pysptk.sptk.mcep(ap.astype(np.float32), order=hparams.num_bap - 1, alpha=hparams.mcep_alpha,
-				maxiter=0, threshold=0.001, etype=1, eps=1.0E-8, min_det=0.0, itype=3)
-
-def ap_denormalize(x, lf0, hparams):
-	ap = pysptk.sptk.mgc2sp(x.astype(np.float64), order=hparams.num_bap - 1,
-				alpha=hparams.mcep_alpha, gamma=0.0, fftlen=hparams.fft_size)
-	ap = np.square(ap / int16_max)
-	for i in range(len(lf0)):
-		ap[i] = np.where(lf0[i] == 0, np.zeros(ap.shape[1]), ap[i])
-	return ap
+	return pyworld.synthesize(f0.flatten().astype(np.float64),
+				spectrogram.astype(np.float64),
+				aperiodicity.astype(np.float64),
+				fs, hp.frame_period)
