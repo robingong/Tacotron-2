@@ -16,7 +16,7 @@ hparams = tf.contrib.training.HParams(
 	num_mgc = 60,
 	num_lf0 = 1,
 	num_vuv = 1, # 1(16KHz, 22050Hz), 5(44.1KHz, 48KHz)
-	num_bap = 1, # 1(16KHz, 22050Hz), 5(44.1KHz, 48KHz)
+	num_bap = 5, # 1(16KHz, 22050Hz), 5(44.1KHz, 48KHz)
 	frame_period = 15, #15ms
 	sample_rate = 48000, #22050 Hz (corresponding to ljspeech dataset)
 	use_harvest = True, #0.58(16k) 0.65(22050) 0.76(44100) 0.77(48000)
@@ -100,9 +100,9 @@ hparams = tf.contrib.training.HParams(
 
 	#Learning rate schedule
 	tacotron_decay_learning_rate = True, #boolean, determines if the learning rate will follow an exponential decay
-	tacotron_start_decay = 50000, #Step at which learning decay starts
-	tacotron_decay_steps = 50000, #Determines the learning rate decay slope (UNDER TEST)
-	tacotron_decay_rate = 0.5, #learning rate decay rate (UNDER TEST)
+	tacotron_start_decay = 40000, #Step at which learning decay starts
+	tacotron_decay_steps = 40000, #Determines the learning rate decay slope (UNDER TEST)
+	tacotron_decay_rate = 0.4, #learning rate decay rate (UNDER TEST)
 	tacotron_initial_learning_rate = 1e-3, #starting learning rate
 	tacotron_final_learning_rate = 1e-5, #minimal learning rate
 
@@ -131,7 +131,7 @@ hparams = tf.contrib.training.HParams(
 	tacotron_teacher_forcing_ratio = 1., #Value from [0., 1.], 0.=0%, 1.=100%, determines the % of times we force next decoder inputs, Only relevant if mode='constant'
 	tacotron_teacher_forcing_init_ratio = 1., #initial teacher forcing ratio. Relevant if mode='scheduled'
 	tacotron_teacher_forcing_final_ratio = 0., #final teacher forcing ratio. (Set None to use alpha instead) Relevant if mode='scheduled'
-	tacotron_teacher_forcing_start_decay = 40000, #starting point of teacher forcing ratio decay. Relevant if mode='scheduled'
+	tacotron_teacher_forcing_start_decay = 10000, #starting point of teacher forcing ratio decay. Relevant if mode='scheduled'
 	tacotron_teacher_forcing_decay_steps = 40000, #Determines the teacher forcing ratio decay slope. Relevant if mode='scheduled'
 	tacotron_teacher_forcing_decay_alpha = None, #teacher forcing ratio decay rate. Defines the final tfr as a ratio of initial tfr. Relevant if mode='scheduled'
 	###########################################################################################################################################
