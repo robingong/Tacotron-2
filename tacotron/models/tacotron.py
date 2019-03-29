@@ -204,9 +204,9 @@ class Tacotron():
 				attention_loss = tf.reduce_sum(tf.abs(A * gts) * attention_masks)
 				attention_loss /= tf.reduce_sum(attention_masks)
 				# Compute loss of predictions before postnet
-				before_loss = tf.reduce_mean(tf.abs(self.feature_targets - self.decoder_outputs))
+				before_loss = tf.losses.mean_squared_error(self.feature_targets, self.decoder_outputs)
 				# Compute loss after postnet
-				after_loss = tf.reduce_mean(tf.abs(self.feature_targets - self.final_outputs))
+				after_loss = tf.losses.mean_squared_error(self.feature_targets, self.final_outputs)
 				#Compute <stop_token> loss (for learning dynamic generation stop)
 				stop_token_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
 								labels=self.stop_token_targets,
