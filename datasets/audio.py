@@ -28,6 +28,7 @@ def feature_extract(wav, hp):
 	spectrogram = pyworld.cheaptrick(wav, f0, timeaxis, fs)
 	aperiodicity = pyworld.d4c(wav, f0, timeaxis, fs)
 	bap = pyworld.code_aperiodicity(aperiodicity, fs)
+	hp.num_bap = bap.shape[1]
 	alpha = pysptk.util.mcepalpha(fs)
 	mgc = pysptk.sp2mc(spectrogram, order=hp.num_mgc - 1, alpha=alpha)
 	f0 = f0[:, None]
@@ -56,10 +57,14 @@ def synthesize(feature, hparams):
 
 	fs = hparams.sample_rate
 	alpha = pysptk.util.mcepalpha(fs)
-	fftlen = fftlen = pyworld.get_cheaptrick_fft_size(fs)
+	fftlen = pyworld.get_cheaptrick_fft_size(fs)
 
 	spectrogram = pysptk.mc2sp(mgc, fftlen=fftlen, alpha=alpha)
+
+	indexes = (vuv < 0.5).flatten()
+	bap[indexes] = np.zeros(hparams.num_bap)
 	aperiodicity = pyworld.decode_aperiodicity(bap.astype(np.float64), fs, fftlen)
+
 	f0 = lf0.copy()
 	f0[vuv < 0.5] = 0
 	f0[np.nonzero(f0)] = np.exp(f0[np.nonzero(f0)])
