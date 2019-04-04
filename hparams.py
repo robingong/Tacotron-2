@@ -17,13 +17,13 @@ hparams = tf.contrib.training.HParams(
 	num_lf0 = 1,
 	num_vuv = 1, # 1(16KHz, 22050Hz), 5(44.1KHz, 48KHz)
 	num_bap = 5, # 1(16KHz, 22050Hz), 5(44.1KHz, 48KHz)
-	frame_period = 8, #8ms
+	frame_period = 5, #15ms
 	sample_rate = 48000, #22050 Hz (corresponding to ljspeech dataset)
 	use_harvest = False, #0.58(16k) 0.65(22050) 0.76(44100) 0.77(48000)
 	rescale_max = 0.999, #Rescaling value
 	trim_silence = True, #Whether to clip silence in Audio (at beginning and end of audio only, not the middle)
-	max_frame_num = 1000,  #Only relevant when clip_mels_length = True
-	max_text_length = 300,  #Only relevant when clip_mels_length = True
+	max_frame_num = 1500,  #Only relevant when clip_mels_length = True
+	max_text_length = 150,  #Only relevant when clip_mels_length = True
 
 	#M-AILABS (and other datasets) trim params
 	trim_fft_size = 512,
@@ -91,10 +91,10 @@ hparams = tf.contrib.training.HParams(
 	tacotron_swap_with_cpu = False, #Whether to use cpu as support to gpu for decoder computation (Not recommended: may cause major slowdowns! Only use when critical!)
 
 	#train/test split ratios, mini-batches sizes
-	tacotron_batch_size = 32, #number of training samples on each training steps
+	tacotron_batch_size = 48, #number of training samples on each training steps
 	#Tacotron Batch synthesis supports ~16x the training batch size (no gradients during testing).
 	#Training Tacotron with unmasked paddings makes it aware of them, which makes synthesis times different from training. We thus recommend masking the encoder.
-	tacotron_synthesis_batch_size = 32 * 16, #DO NOT MAKE THIS BIGGER THAN 1 IF YOU DIDN'T TRAIN TACOTRON WITH "mask_encoder=True"!!
+	tacotron_synthesis_batch_size = 1, #DO NOT MAKE THIS BIGGER THAN 1 IF YOU DIDN'T TRAIN TACOTRON WITH "mask_encoder=True"!!
 	tacotron_test_size = 0.05, #% of data to keep as test data, if None, tacotron_test_batches must be not None. (5% is enough to have a good idea about overfit)
 	tacotron_test_batches = None, #number of test batches.
 
