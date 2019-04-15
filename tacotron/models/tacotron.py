@@ -36,8 +36,6 @@ class Tacotron():
 			raise ValueError('no feature targets were provided but token_targets were given')
 		if feature_targets is not None and stop_token_targets is None and not gta:
 			raise ValueError('Mel targets are provided without corresponding token_targets')
-		if gta and mgc_targets is not None:
-			raise ValueError('Linear spectrogram prediction is not supported in GTA mode!')
 		if is_training and self._hparams.mask_decoder and targets_lengths is None:
 			raise RuntimeError('Model set to mask paddings but no targets lengths provided for the mask!')
 		if is_training and is_evaluating:
