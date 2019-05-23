@@ -13,7 +13,7 @@ hparams = tf.contrib.training.HParams(
 	###########################################################################################################################################
 
 	#Audio
-	num_mels = 160, #Number of mel-spectrogram channels and local conditioning dimensionality
+	num_mels = 80, #Number of mel-spectrogram channels and local conditioning dimensionality
 	num_freq = 2049, # (= n_fft / 2 + 1) only used when adding linear spectrograms post processing network
 	rescale = False, #Whether to rescale audio prior to preprocessing
 	rescaling_max = 0.999, #Rescaling value
@@ -21,12 +21,6 @@ hparams = tf.contrib.training.HParams(
 	clip_mels_length = True, #For cases of OOM (Not really recommended, working on a workaround)
 	max_mel_frames = 600,  #Only relevant when clip_mels_length = True
 	max_text_length = 150,  #Only relevant when clip_mels_length = True
-
-	# Use LWS (https://github.com/Jonathan-LeRoux/lws) for STFT and phase reconstruction
-	# It's preferred to set True to use with https://github.com/r9y9/wavenet_vocoder
-	# Does not work if n_ffit is not multiple of hop_size!!
-	use_lws=False,
-	silence_threshold=2, #silence threshold used for sound trimming for wavenet preprocessing
 
 	#Mel spectrogram
 	n_fft = 4096, #Extra window size is filled with 0 paddings to match this parameter
@@ -92,16 +86,6 @@ hparams = tf.contrib.training.HParams(
 	postnet_num_layers = 5, #number of postnet convolutional layers
 	postnet_kernel_size = (5, ), #size of postnet convolution filters for each layer
 	postnet_channels = 512, #number of postnet convolution filters for each layer
-
-	#CBHG mel->linear postnet
-	cbhg_kernels = 8, #All kernel sizes from 1 to cbhg_kernels will be used in the convolution bank of CBHG to act as "K-grams"
-	cbhg_conv_channels = 128, #Channels of the convolution bank
-	cbhg_pool_size = 2, #pooling size of the CBHG
-	cbhg_projection = 256, #projection channels of the CBHG (1st projection, 2nd is automatically set to num_mels)
-	cbhg_projection_kernel_size = 3, #kernel_size of the CBHG projections
-	cbhg_highwaynet_layers = 4, #Number of HighwayNet layers
-	cbhg_highway_units = 128, #Number of units used in HighwayNet fully connected layers
-	cbhg_rnn_units = 128, #Number of GRU units used in bidirectional RNN of CBHG block. CBHG output is 2x rnn_units in shape
 
 	#Loss params
 	mask_encoder = False, #whether to mask encoder padding while computing attention. Set to True for better prosody but slower convergence.

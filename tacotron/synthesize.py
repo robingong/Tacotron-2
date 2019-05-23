@@ -61,7 +61,7 @@ def run_eval(args, checkpoint_path, output_dir, hparams, sentences):
 	batch_sentences = [sentences[i: i+hparams.tacotron_synthesis_batch_size] for i in range(0, len(sentences), delta_size)]
 	start = time.time()
 	for i, batch in enumerate(tqdm(batch_sentences)):
-		audio.save_wav(synth.eval(batch), os.path.join(log_dir, 'wavs', 'eval_batch_{:03}.wav'.format(i)), hparams)
+		synth.eval(batch, log_dir)
 	log('\nGenerated total batch of {} in {:.3f} sec'.format(delta_size, time.time() - start))	
 
 	return eval_dir
