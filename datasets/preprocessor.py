@@ -5,7 +5,7 @@ import numpy as np
 from datasets import audio
 
 
-def build_from_path(hparams, input_dirs, mel_dir, linear_dir, wav_dir, n_jobs=12, tqdm=lambda x: x):
+def build_from_path(hparams, input_dirs, mel_dir, n_jobs=12, tqdm=lambda x: x):
 	"""
 	Preprocesses the speech dataset from a gven input path to given output directories
 
@@ -36,13 +36,13 @@ def build_from_path(hparams, input_dirs, mel_dir, linear_dir, wav_dir, n_jobs=12
 				wav_path = wav_file
 				basename = basename.split('/')[-1]
 				text = f.readline().strip()
-				futures.append(executor.submit(partial(_process_utterance, mel_dir, linear_dir, wav_dir, basename, wav_path, text, hparams)))
+				futures.append(executor.submit(partial(_process_utterance, mel_dir, basename, wav_path, text, hparams)))
 				index += 1
 
 	return [future.result() for future in tqdm(futures) if future.result() is not None]
 
 
-def _process_utterance(mel_dir, linear_dir, wav_dir, index, wav_path, text, hparams):
+def _process_utterance(mel_dir, index, wav_path, text, hparams):
 	"""
 	Preprocesses a single utterance wav/text pair
 
@@ -112,12 +112,8 @@ def _process_utterance(mel_dir, linear_dir, wav_dir, index, wav_path, text, hpar
 	time_steps = len(out)
 
 	# Write the spectrogram and audio to disk
-	audio_filename = 'audio-{}.npy'.format(index)
-	mel_filename = 'mel-{}.npy'.format(index)
-	linear_filename = 'linear-{}.npy'.format(index)
-	# np.save(os.path.join(wav_dir, audio_filename), out.astype(out_dtype), allow_pickle=False)
+	mel_filename = '{}.npy'.format(index)
 	np.save(os.path.join(mel_dir, mel_filename), mel_spectrogram.T, allow_pickle=False)
-	np.save(os.path.join(linear_dir, linear_filename), linear_spectrogram.T, allow_pickle=False)
 
 	# Return a tuple describing this training example
-	return (audio_filename, mel_filename, linear_filename, time_steps, mel_frames, text)
+	return (mel_filename, time_steps, mel_frames, text)
