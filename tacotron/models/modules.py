@@ -383,33 +383,3 @@ def MaskedSigmoidCrossEntropy(targets, outputs, targets_lengths, hparams, mask=N
 		masked_loss = losses * mask
 
 	return tf.reduce_sum(masked_loss) / tf.count_nonzero(masked_loss, dtype=tf.float32)
-
-def MaskedLinearLoss(targets, outputs, targets_lengths, hparams, mask=None):
-	'''Computes a masked MAE loss with priority to low frequencies
-	'''
-
-	#[batch_size, time_dimension, 1]
-	#example:
-	#sequence_mask([1, 3, 2], 5) = [[[1., 0., 0., 0., 0.]],
-	#							    [[1., 1., 1., 0., 0.]],
-	#							    [[1., 1., 0., 0., 0.]]]
-	#Note the maxlen argument that ensures mask shape is compatible with r>1
-	#This will by default mask the extra paddings caused by r>1
-	if mask is None:
-		mask = sequence_mask(targets_lengths, hparams.outputs_per_step, True)
-
-	#[batch_size, time_dimension, channel_dimension(freq)]
-	ones = tf.ones(shape=[tf.shape(mask)[0], tf.shape(mask)[1], tf.shape(targets)[-1]], dtype=tf.float32)
-	mask_ = mask * ones
-
-	l1 = tf.abs(targets - outputs)
-	n_priority_freq = int(2000 / (hparams.sample_rate * 0.5) * hparams.num_freq)
-
-	with tf.control_dependencies([tf.assert_equal(tf.shape(targets), tf.shape(mask_))]):
-		masked_l1 = l1 * mask_
-		masked_l1_low = masked_l1[:,:,0:n_priority_freq]
-
-	mean_l1 = tf.reduce_sum(masked_l1) / tf.reduce_sum(mask_)
-	mean_l1_low = tf.reduce_sum(masked_l1_low) / tf.reduce_sum(mask_)
-
-	return 0.5 * mean_l1 + 0.5 * mean_l1_low
