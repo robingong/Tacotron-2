@@ -100,7 +100,7 @@ class Synthesizer:
 
 		return saved_mels_paths, speaker_ids
 
-	def eval(self, batch, out_dir):
+	def eval(self, batch):
 		hparams = self._hparams
 		cleaner_names = [x.strip() for x in hparams.cleaners.split(',')]
 		seqs = [np.asarray(text_to_sequence(text, cleaner_names)) for text in batch]
@@ -120,22 +120,7 @@ class Synthesizer:
 		mels = [mel[:target_length, :] for mel, target_length in zip(mels, target_lengths)]
 		assert len(mels) == len(batch)
 
-		#save wav (mel -> wav)
-		mel_filenames = []
-		for i, mel in enumerate(mels):
-			mel_filename = os.path.join(out_dir, '{:03d}.npy'.format(i))
-			np.save(mel_filename, mel.T, allow_pickle=False)
-			wav = audio.inv_mel_spectrogram(mel.T, self._hparams)
-			audio.save_wav(wav, os.path.join(out_dir, '{:03d}.wav'.format(i)), self._hparams)
-			mel_filenames.append(mel_filename)
-		return mel_filenames
-
-		results = []
-		for i, linear in enumerate(linears):
-			linear_wav = self.session.run(self.linear_wav_outputs, feed_dict={self.linear_spectrograms: linear})
-			wav = audio.inv_preemphasis(linear_wav, hparams.preemphasis)
-			results.append(wav)
-		return np.concatenate(results)
+		return np.concatenate(mels)
 
 	def _round_up(self, x, multiple):
 		remainder = x % multiple

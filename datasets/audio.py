@@ -14,7 +14,7 @@ def save_wav(wav, path, hparams):
 	f1 = 0.5 * 32767 / max(0.01, np.max(np.abs(wav)))
 	f2 = np.sign(wav) * np.power(np.abs(wav), 0.95)
 	wav = f1 * f2
-	wav = signal.convolve(wav, signal.firwin(hparams.num_freq, [hparams.fmin, hparams.fmax], pass_zero=False, fs=hparams.sample_rate))
+	wav = signal.convolve(wav, signal.firwin(256, [hparams.fmin, hparams.fmax], pass_zero=False, fs=hparams.sample_rate))
 	#proposed by @dsmiller
 	wavfile.write(path, hparams.sample_rate, wav.astype(np.int16))
 
