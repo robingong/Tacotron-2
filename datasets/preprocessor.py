@@ -5,7 +5,7 @@ import numpy as np
 from datasets import audio
 
 
-def build_from_path(hparams, input_dirs, mel_dir, n_jobs=12, tqdm=lambda x: x):
+def build_from_path(hparams, input_dirs, wav_dir, mel_dir, n_jobs=12, tqdm=lambda x: x):
 	"""
 	Preprocesses the speech dataset from a gven input path to given output directories
 
@@ -13,7 +13,6 @@ def build_from_path(hparams, input_dirs, mel_dir, n_jobs=12, tqdm=lambda x: x):
 		- hparams: hyper parameters
 		- input_dir: input directory that contains the files to prerocess
 		- mel_dir: output directory of the preprocessed speech mel-spectrogram dataset
-		- linear_dir: output directory of the preprocessed speech linear-spectrogram dataset
 		- wav_dir: output directory of the preprocessed speech audio dataset
 		- n_jobs: Optional, number of worker process to parallelize across
 		- tqdm: Optional, provides a nice progress bar
@@ -36,13 +35,13 @@ def build_from_path(hparams, input_dirs, mel_dir, n_jobs=12, tqdm=lambda x: x):
 				wav_path = wav_file
 				basename = basename.split('/')[-1]
 				text = f.readline().strip()
-				futures.append(executor.submit(partial(_process_utterance, mel_dir, basename, wav_path, text, hparams)))
+				futures.append(executor.submit(partial(_process_utterance, wav_dir, mel_dir, basename, wav_path, text, hparams)))
 				index += 1
 
 	return [future.result() for future in tqdm(futures) if future.result() is not None]
 
 
-def _process_utterance(mel_dir, index, wav_path, text, hparams):
+def _process_utterance(wav_dir, mel_dir, index, wav_path, text, hparams):
 	"""
 	Preprocesses a single utterance wav/text pair
 
@@ -51,7 +50,6 @@ def _process_utterance(mel_dir, index, wav_path, text, hparams):
 
 	Args:
 		- mel_dir: the directory to write the mel spectograms into
-		- linear_dir: the directory to write the linear spectrograms into
 		- wav_dir: the directory to write the preprocessed wav into
 		- index: the numeric index to use in the spectogram filename
 		- wav_path: path to the audio file containing the speech input
@@ -78,7 +76,7 @@ def _process_utterance(mel_dir, index, wav_path, text, hparams):
 		wav = audio.trim_silence(wav, hparams)
 
 	#[-1, 1]
-	out = wav
+	quant = encode_mu_law(wav, mu=512)
 	constant_values = 0.
 	out_dtype = np.float32
 
@@ -101,7 +99,7 @@ def _process_utterance(mel_dir, index, wav_path, text, hparams):
 	l, r = audio.pad_lr(wav, fft_size, audio.get_hop_size(hparams))
 
 	#Zero pad for quantized signal
-	out = np.pad(out, (l, r), mode='constant', constant_values=constant_values)
+	out = np.pad(quant, (l, r), mode='constant', constant_values=constant_values)
 	assert len(out) >= mel_frames * audio.get_hop_size(hparams)
 
 	#time resolution adjustement
@@ -111,9 +109,36 @@ def _process_utterance(mel_dir, index, wav_path, text, hparams):
 	assert len(out) % audio.get_hop_size(hparams) == 0
 	time_steps = len(out)
 
+	#quantity by mulaw
+
 	# Write the spectrogram and audio to disk
-	mel_filename = '{}.npy'.format(index)
-	np.save(os.path.join(mel_dir, mel_filename), mel_spectrogram.T, allow_pickle=False)
+	filename = '{}.npy'.format(index)
+	np.save(os.path.join(wav_dir, filename), quant.astype(np.int16), allow_pickle=False)
+	np.save(os.path.join(mel_dir, filename), mel_spectrogram.T, allow_pickle=False)
 
 	# Return a tuple describing this training example
-	return (mel_filename, time_steps, mel_frames, text)
+	return (filename, time_steps, mel_frames, text)
+
+
+def label_2_float(x, bits) :
+	return 2 * x / (2**bits - 1.) - 1.
+
+
+def float_2_label(x, bits) :
+	assert abs(x).max() <= 1.0
+	x = (x + 1.) * (2**bits - 1) / 2
+	return x.clip(0, 2**bits - 1)
+
+
+def encode_mu_law(x, mu) :
+	mu = mu - 1
+	fx = np.sign(x) * np.log(1 + mu * np.abs(x)) / np.log(1 + mu)
+	return np.floor((fx + 1) / 2 * mu + 0.5)
+
+
+def decode_mu_law(y, mu, from_labels=True) :
+	# TODO : get rid of log2 - makes no sense
+	if from_labels : y = label_2_float(y, math.log2(mu))
+	mu = mu - 1
+	x = np.sign(y) / mu * ((1 + mu) ** np.abs(y) - 1)
+	return x
