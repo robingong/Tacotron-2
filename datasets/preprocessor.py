@@ -75,10 +75,10 @@ def _process_utterance(wav_dir, mel_dir, index, wav_path, text, hparams):
 	if hparams.trim_silence:
 		wav = audio.trim_silence(wav, hparams)
 
+	wav = audio.preemphasis(wav, hparams.preemphasis)
+
 	#[-1, 1]
-	quant = encode_mu_law(wav, mu=512)
-	constant_values = 0.
-	out_dtype = np.float32
+	out = encode_mu_law(wav, mu=512)
 
 	# Compute the mel scale spectrogram from the wav
 	mel_spectrogram = audio.melspectrogram(wav, hparams).astype(np.float32)
@@ -87,33 +87,18 @@ def _process_utterance(wav_dir, mel_dir, index, wav_path, text, hparams):
 	if mel_frames > hparams.max_mel_frames or len(text) > hparams.max_text_length:
 		return None
 
-	#Compute the linear scale spectrogram from the wav
-	linear_spectrogram = audio.linearspectrogram(wav, hparams).astype(np.float32)
-	linear_frames = linear_spectrogram.shape[1]
-
-	#sanity check
-	assert linear_frames == mel_frames
-
-	#Ensure time resolution adjustement between audio and mel-spectrogram
-	fft_size = hparams.n_fft if hparams.win_size is None else hparams.win_size
-	l, r = audio.pad_lr(wav, fft_size, audio.get_hop_size(hparams))
-
 	#Zero pad for quantized signal
-	out = np.pad(quant, (l, r), mode='constant', constant_values=constant_values)
-	assert len(out) >= mel_frames * audio.get_hop_size(hparams)
-
 	#time resolution adjustement
 	#ensure length of raw audio is multiple of hop size so that we can use
 	#transposed convolution to upsample
-	out = out[:mel_frames * audio.get_hop_size(hparams)]
-	assert len(out) % audio.get_hop_size(hparams) == 0
+	r = mel_frames * audio.get_hop_size(hparams) - len(wav)
+	out = np.pad(out, (0, r), mode='constant', constant_values=0.)
+	assert len(out) == mel_frames * audio.get_hop_size(hparams)
 	time_steps = len(out)
-
-	#quantity by mulaw
 
 	# Write the spectrogram and audio to disk
 	filename = '{}.npy'.format(index)
-	np.save(os.path.join(wav_dir, filename), quant.astype(np.int16), allow_pickle=False)
+	np.save(os.path.join(wav_dir, filename), out.astype(np.int16), allow_pickle=False)
 	np.save(os.path.join(mel_dir, filename), mel_spectrogram.T, allow_pickle=False)
 
 	# Return a tuple describing this training example
@@ -136,8 +121,9 @@ def encode_mu_law(x, mu) :
 	return np.floor((fx + 1) / 2 * mu + 0.5)
 
 
-def decode_mu_law(y, mu, from_labels=True) :
+def decode_mu_law(y, mu, from_labels=False) :
 	# TODO : get rid of log2 - makes no sense
+	import math
 	if from_labels : y = label_2_float(y, math.log2(mu))
 	mu = mu - 1
 	x = np.sign(y) / mu * ((1 + mu) ** np.abs(y) - 1)
