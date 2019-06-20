@@ -75,8 +75,6 @@ def _process_utterance(wav_dir, mel_dir, index, wav_path, text, hparams):
 	if hparams.trim_silence:
 		wav = audio.trim_silence(wav, hparams)
 
-	wav = audio.preemphasis(wav, hparams.preemphasis)
-
 	#[-1, 1]
 	out = encode_mu_law(wav, mu=512)
 
