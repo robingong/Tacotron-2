@@ -89,6 +89,8 @@ since the two parts of the global model are trained separately, we can start by 
 # How to start
 first, you need to have python 3 installed along with [Tensorflow](https://www.tensorflow.org/install/).
 
+sudo apt-get install -y libasound-dev portaudio19-dev libportaudio2 libportaudiocpp0 ffmpeg libav-tools
+
 next you can install the requirements. If you are an Anaconda user: (else replace **pip** with **pip3** and **python** with **python3**)
 
 > pip install -r requirements.txt
